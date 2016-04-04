@@ -353,7 +353,7 @@ class PackageManager
       callback?(error)
 
     @emitPackageEvent('uninstalling', pack)
-    apmProcess = @runCommand ['uninstall', '--hard', name], (code, stdout, stderr) =>
+    apmProcess = @runCommand ['uninstall', name], (code, stdout, stderr) =>
       if code is 0
         @clearOutdatedCache()
         @unload(name)
@@ -361,6 +361,21 @@ class PackageManager
         @removePackageNameFromDisabledPackages(name)
         callback?()
         @emitPackageEvent 'uninstalled', pack
+      else if String(stderr).match(/exist/i) or String(stdout).match(/exist/i)
+        apmProcess = @runCommand ['uninstall', '--dev', name], (code, stdout, stderr) =>
+          if code is 0
+            @clearOutdatedCache()
+            @unload(name)
+            @removePackageFromAvailablePackageNames(name)
+            @removePackageNameFromDisabledPackages(name)
+            callback?()
+            @emitPackageEvent 'uninstalled', pack
+          else
+            error = new Error(errorMessage)
+            error.stdout = stdout
+            error.stderr = stderr
+            onError(error)
+        handleProcessErrors(apmProcess, errorMessage, onError)
       else
         error = new Error(errorMessage)
         error.stdout = stdout
